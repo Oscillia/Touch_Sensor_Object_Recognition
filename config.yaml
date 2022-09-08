@@ -1,0 +1,139 @@
+camera_setting:
+  camera_channel: 1 # vary by usb port? range [0,2]
+  resolution_option: 2 #[320,240] [640,480] [800,600] [1280,720]
+  crop_width: 600
+  crop_height: 600
+#  resolution_option: 1 #[320,240] [640,480] [800,600] [1280,720]
+#  crop_width: 480
+#  crop_height: 480
+  chessboard_images_path: ../images/camera_calibration_images/
+  camera_id: 1
+  prefix: calibration
+  image_format: png
+  square_size: 3.0
+  corners_row: 8
+  corners_column: 11
+  parameter_saving_file: ../images/camera_calibration_images/camera_parameters.txt
+  optimization: False
+  mtx:
+    - - 5.1036584689406021e+02
+      - 0.0
+      - 4.0458452716704704e+02
+    - - 0.0
+      - 5.1003554977384476e+02
+      - 2.8699709636615717e+02
+    - - 0.0
+      - 0.0
+      - 1.0
+  dist:
+    - - 7.4841378597933342e-02
+      - -1.9454595325331406e-01
+      - -1.5775011105573879e-03
+      - 2.0082992662384097e-04
+      - 1.7201350117671926e-01
+
+images_collection:
+  calibration_images_path: ../images/sensor_calibration_images
+  directory_prefix: /sensor_
+  ref_directory: /ref
+  sample_directory: /sample_2mm
+
+calibration:
+  BallRad: 4.0
+  Pixmm:
+    - 0.04165
+    - 0.0383
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0.04165
+    - 0.04165
+  center_height:
+    - 1.0
+    - 2.0
+    - 3.0
+  height_begin:
+    - 0.4
+    - 0.0
+    - 0.0
+  sample_directory_list:
+    - /sample_1mm
+    - /sample_2mm
+    - /sample_3mm
+  calibration_choice:
+    - 0
+    - 1
+    - 0
+  circle_detection_gray:
+    - 3
+    - 6
+    - 25
+  show_circle_detection: False
+#  show_circle_detection: True
+  dB_scope: 100
+  dG_scope: 100
+  dR_scope: 100
+  dGRAY_scope: 100
+
+heightmap:
+  look-up_table_path: ./look-up_table
+  directory_prefix: /table_sensor_
+  sensor_id: 9
+  table_directory_id: /0807_1
+
+#  analyse_channel: True
+  analyse_channel: False
+  B_list_name: /B_list.npy
+  G_list_name: /G_list.npy
+  R_list_name: /R_list.npy
+  gray_list_name: /gray_list.npy
+  depth_list_name: /depth_list.npy
+  GRAY_H_name: /GRAY_H_table.npy
+
+  heightmap_type: 1 #1: B_G_R, 0: h_w_R
+  B_G_R_table_name: /B_G_R_table.npy
+  B_G_R_table_account_name: /B_G_R_table_account.npy
+  B_G_R_table_smooth_name: /B_G_R_table_smooth.npy
+  B_H_name: /B_H_table.npy
+  G_H_name: /G_H_table.npy
+  R_H_name: /R_H_table.npy
+  h_w_R_table_name: /h_w_R_table.npy
+  h_w_R_table_account_name: /h_w_R_table_account.npy
+  h_w_R_table_smooth_name: /h_w_R_table_smooth.npy
+
+#  channel_used: 0 #blue
+#  channel_used: 1 #green
+#  channel_used: 2 #red
+  channel_used: 3 #gray
+  lighting_threshold: 6
+  diff_blur: True
+  diff_blur_kernel: 7
+  heightmap_blur: True # fixed
+#  heightmap_blur: False
+  heightmap_blur_kernel: 7
+
+Reconstruction:
+  channel_used: 0 #blue
+#  channel_used: 1 #green
+#  channel_used: 2 #red
+#  channel_used: 3 #gray
+
+
+
+visualizer: 
+  show_ref_image: False
+  show_raw_image: True
+  show_diff_image: False
+  show_height_map: True # fixed
+  show_height_map_blur: True # fixed
+  show_point_cloud: False # True
+
+pose_estimation:
+  contact_z_threshold: 0.1
+  contact_object: 3 # 0:cube, 1:cylinder, 2:sphere, 3:nut
+
+save_path:
+  root_path: dataset
+  object_name: spanner # sphere, cylinder, bolt, nut, etc; change for each type
