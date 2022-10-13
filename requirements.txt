@@ -1,0 +1,6 @@
+python==3.9
+numpy==1.22.3
+open3d==
+opencv-python
+yaml==
+os==

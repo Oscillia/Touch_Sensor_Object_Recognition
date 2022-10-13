@@ -35,50 +35,82 @@ set_seed(100000007)
 # initialization
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
+print(device)
 data_root_dir = 'dataset'
 num_workers = 2
-batch_size = 8
-num_epoch = 15
-num_classes= 5 # number of classes; tbc
-fold_k = 5 # for k-fold
-csv_file_path = 'object_raw_images.csv' # with raw image
+num_classes= 12 # number of classes; tbc
+fold_k = 4 # for k-fold
+csv_file_path = 'object_raw_images' # with raw image
 model_save_dir = 'models'
 loss_list, accr_list = [], []
+learning_rate = 2e-3
 
+# commented in the final version, since dataset is fixed
+# run this before every training process if dataset is subject to change
+# dataset_csv_generator(size=360, save_path=csv_file_path)
 
-dataset_csv_generator(size=500)
-
+# normalization
+# IMPORTANT: should re-run dataset_normalization_generation.py after each change for dataset
+# load mean and std
+normalization_factors = torch.load('normalization_factors_object_raw_images.pt')
+# denormalization_factors = torch.load('denormalization_factors_object_raw_images.pt')
 
 # transforms
-transform = transforms.Compose([
-    transforms.Resize(224),
+transform_test = transforms.Compose([
+    transforms.Resize(250),
+    transforms.CenterCrop(224),
     transforms.ToTensor(),
-    transforms.Normalize([125 / 255, 124 / 255, 115 / 255],
-                         [60 / 255, 59 / 255, 64 / 255])
+    transforms.Normalize(normalization_factors['img_mean'], normalization_factors['img_std'])
 ])
 
-transform_train = transforms.Compose([
-    transforms.Resize(300),
+# transform_test_grayscale = transforms.Compose([
+#     transform_test,
+#     transforms.Grayscale(),
+#     transforms.Normalize(normalization_factors['grayscale_img_mean'], normalization_factors['grayscale_img_std'])
+# ])
+
+transform_train_base = transforms.Compose([
+    transforms.Resize(250),
     transforms.RandomHorizontalFlip(0.5), transforms.RandomRotation(90),
     transforms.RandomResizedCrop(224),
     transforms.ToTensor(),
-    transforms.Normalize([125 / 255, 124 / 255, 115 / 255],
-                         [60 / 255, 59 / 255, 64 / 255])
 ])
+
+transform_train = transforms.Compose([
+    transform_train_base,
+    transforms.Normalize(normalization_factors['img_mean'], normalization_factors['img_std'])
+])
+
+# transform_train_grayscale = transforms.Compose([
+#     transform_train_base,
+#     transforms.Grayscale(),
+#     transforms.Normalize(normalization_factors['grayscale_img_mean'], normalization_factors['grayscale_img_std'])
+# ])
 
 # dataset
 
-dataset = TouchSensorObjectsDataset(csv_file_path, root_dir=data_root_dir, transform=transform_train)
-train_set, test_set = random_split(dataset, [1800, 700])
-test_loader = DataLoader(test_set, batch_size=100, shuffle=False, num_workers=num_workers)
+train_set_base = TouchSensorObjectsDataset(csv_file_path+'_train.csv', transform=transform_train)
+# train_set_gray = TouchSensorObjectsDataset(csv_file_path+'_train.csv', transform=transform_train_grayscale)
+
+test_set_base = TouchSensorObjectsDataset(csv_file_path+'_test.csv', transform=transform_test)
+# test_set_gray = TouchSensorObjectsDataset(csv_file_path+'_test.csv', transform=transform_test_grayscale)
+test_loader = DataLoader(test_set_base, batch_size=100, shuffle=False, num_workers=num_workers)
+# test_loader_gray = DataLoader(test_set_gray, batch_size=100, shuffle=False, num_workers=num_workers)
 
 
-# model and critetion
+# models and critetion
+# for raw image
 model_resnet = models.resnet18()
 model_resnet.fc = nn.Linear(512, num_classes)
 model_resnet.to(device)
-criterion = nn.CrossEntropyLoss()
 
+# for grayscale image
+# model_resnet_gray = models.resnet18()
+# model_resnet_gray.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
+# model_resnet_gray.fc = nn.Linear(512, num_classes)
+# model_resnet_gray.to(device)
+
+criterion = nn.CrossEntropyLoss()
 
 # k-fold
 splits = KFold(n_splits=fold_k, shuffle=True, random_state=42)
@@ -138,21 +170,18 @@ def valid_epoch(model, device, dataloader, criterion):
     return loss_list, accr_list
 
 
-history = {'train_loss': [], 'valid_loss': [],'train_accr':[],'valid_accr':[]}
+def train(model, train_set, test_loader, batch_size = 32, lr=1e-3, step_size=5, decay=0.3, num_epoch=20, save_interval=5, save_prefix=''):
 
-
-def train(model, num_epoch=5, learning_rate=1e-3, save_interval=5):
-
-    global history
-
-    optimizer = torch.optim.Adam(model_resnet.parameters(), lr=learning_rate)
+    history = {'train_loss': [], 'valid_loss': [],'train_accr':[],'valid_accr':[]}
+    optimizer = torch.optim.Adam(model_resnet.parameters(), lr=lr)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=decay)
 
     # model = model_resnet
     model.to(device)
 
     for epoch in range(num_epoch):  # loop over the dataset multiple times
 
-        print("Epoch {} for learning rate {}:".format(epoch+1, learning_rate))
+        print("Epoch {} for learning rate {}:".format(epoch+1, scheduler.get_last_lr()))
 
         # k-fold
         for fold, (train_idx, valid_idx) in enumerate(splits.split(np.arange(len(train_set)))):
@@ -172,18 +201,62 @@ def train(model, num_epoch=5, learning_rate=1e-3, save_interval=5):
 
             print('Epoch {}, fold {}: avg train loss {}, avg valid loss {}, avg train accr {}, avg valid accr {}'.format(epoch + 1, fold + 1, history['train_loss'][-1], history['valid_loss'][-1], history['train_accr'][-1], history['valid_accr'][-1]))
 
+        print("Training completed for Epoch {}. Evaluating on test set...".format(epoch + 1))
+        evaluation(model, test_loader, device, img_show=True)
+
         if (epoch+1)%save_interval == 0:
-            torch.save(model, os.path.join(model_save_dir, 'model_resnet18_{}_{}_{}.pth'.format(learning_rate*1e6, epoch+1, datetime.now().strftime('%Y%m%d%H%M%S'))))
+            torch.save(model, os.path.join(model_save_dir, 'model_resnet18{}_{}_{}_{}.pth'.format(save_prefix, int(scheduler.get_last_lr()[-1] * 1000000), epoch+1, datetime.now().strftime('%Y%m%d%H%M%S'))))
+
+        plt.plot(range(len(history['train_accr'])), history['train_accr'], label='train accuracy')
+        plt.plot(range(len(history['valid_accr'])), history['valid_accr'], label='validation accuracy')
+        plt.xlabel("iterations")
+        plt.ylabel("Accuracy")
+        plt.legend()
+        plt.show()
+
+        scheduler.step()
 
     return
 
 
-train(model_resnet,num_epoch=5,learning_rate=5e-4,save_interval=5)
-train(model_resnet,num_epoch=5,learning_rate=1e-4,save_interval=5)
-train(model_resnet,num_epoch=5,learning_rate=3e-5,save_interval=5)
+@torch.no_grad()
+def evaluation(model, dataLoader, device, img_show=False):
+    correct = 0
+    total = 0
+    model.eval()
+    denormalization_factors = torch.load('denormalization_factors_object_raw_images.pt')
+    denorm = transforms.Normalize(denormalization_factors['denorm_mean'], denormalization_factors['denorm_std'])
+    with torch.no_grad():
+        for data in dataLoader:
+            images, labels = data[0].to(device), data[1].to(device)
+            outputs = model(images)
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+            if img_show and (predicted != labels).sum().item() > 1:
+                wrong_idx = np.where((predicted != labels).cpu() != 0).reshape(1, -1)
+                # import pdb; pdb.set_trace()
+                for idx in wrong_idx:
+                    example = np.transpose(denorm(images[idx]).cpu().numpy(), (1, 2, 0)) # use this if input images are normalized
+                    # example = np.transpose(images[idx].cpu().numpy(), (1, 2, 0))
+                    plt.imshow(example.astype(np.uint8))
+                    plt.title("predicted {}, should be {}".format(object_types[predicted[idx]], object_types[labels[idx]]))
+                    plt.show()
+    accuracy = 100 * correct / total
+    print('Accuracy of the network on the test images: {}%'.format(accuracy))
+    return accuracy
 
 
-plt.plot(history['valid_accr'])
-plt.xlabel("iterations")
-plt.ylabel("Validation Accuracy")
-plt.show()
+train(model_resnet, train_set_base, test_loader, num_epoch=30)
+
+evaluation(model_resnet, test_loader, device, img_show=True)
+
+train(model_resnet, train_set_base, test_loader, lr=2e-3, step_size=3, decay=0.6, num_epoch=30)
+
+evaluation(model_resnet, test_loader, device, img_show=True)
+
+
+# train(model_resnet_gray, train_set_gray, test_loader_gray, lr=2e-3, step_size=3, decay=0.9, num_epoch=30, save_prefix='_grayscale')
+
+# evaluation(model_resnet_gray, test_loader_gray, device, img_show=True)
+

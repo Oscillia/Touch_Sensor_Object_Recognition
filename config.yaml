@@ -1,5 +1,6 @@
 camera_setting:
-  camera_channel: 1 # vary by usb port? range [0,2]
+  # vary by usb port; range [0,2] # 1 for lenovo air; also 1 for asus zenbook when usb is connected to the 1st port
+  camera_channel: 1
   resolution_option: 2 #[320,240] [640,480] [800,600] [1280,720]
   crop_width: 600
   crop_height: 600
@@ -136,4 +137,4 @@ pose_estimation:
 
 save_path:
   root_path: dataset
-  object_name: spanner # sphere, cylinder, bolt, nut, etc; change for each type
+  object_name: key # sphere, cylinder, bolt, nut, etc; change for each type

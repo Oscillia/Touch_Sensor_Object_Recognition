@@ -237,6 +237,7 @@ if __name__ == '__main__':
     cfg = yaml.load(f, Loader=yaml.FullLoader)
     cfg_vis = cfg['visualizer']
     cfg_save_path = cfg['save_path']
+    print(cfg_save_path['object_name']) # check if successfully changes
 
     camera = Camera(cfg)
     hm = HeightMap(cfg)
@@ -248,7 +249,7 @@ if __name__ == '__main__':
         vis = Visualizer(cfg, rcs.points)
 
     ################# preparing to save image ################
-    ctr = 100  # counter for images
+    ctr = 0  # counter for images
     # creating paths
     current_path = os.getcwd()
     object_path = os.path.join(current_path, cfg_save_path['root_path'], cfg_save_path['object_name'])
@@ -318,13 +319,13 @@ if __name__ == '__main__':
                 # fix later
                 print("Saving image number", ctr)
                 os.chdir(raw_path)
-                cv2.imwrite('raw_' + str(ctr) + ".png", img)
+                cv2.imwrite('raw_' + str(ctr).zfill(3) + ".png", img)
                 os.chdir(diff_path)
-                cv2.imwrite('diff_' + str(ctr) + ".png", diff_raw_rgb)
+                cv2.imwrite('diff_' + str(ctr).zfill(3) + ".png", diff_raw_rgb)
                 os.chdir(depth_map_path)
-                cv2.imwrite('depth_' + str(ctr) + ".png", height_map_blur_show_uint_2)  # may vary if cfg is changed; fixed for now
+                cv2.imwrite('depth_' + str(ctr).zfill(3) + ".png", height_map_blur_show_uint_2)  # may vary if cfg is changed; fixed for now
                 os.chdir(height_path)
-                np.save('height_' + str(ctr) + ".npy", height_map_blur_2)
+                np.save('height_' + str(ctr).zfill(3) + ".npy", height_map_blur_2)
                 ctr += 1
                 print(ctr)
                 os.chdir(current_path)
